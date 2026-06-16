@@ -1,0 +1,46 @@
+# GenomeX - Local development with Docker Compose
+
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: genomex-postgres
+    environment:
+      POSTGRES_USER: genomex
+      POSTGRES_PASSWORD: genomex123
+      POSTGRES_DB: genomexdb
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U genomex"]
+      interval: 5s
+      retries: 5
+
+  backend:
+    build: ./backend
+    container_name: genomex-backend
+    environment:
+      DATABASE_URL: postgresql://genomex:genomex123@postgres:5432/genomexdb?schema=public
+      JWT_SECRET: genomex-super-secret
+      PORT: 5000
+    ports:
+      - "5001:5000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  frontend:
+    build: ./frontend
+    container_name: genomex-frontend
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+volumes:
+  postgres_data:

@@ -1,0 +1,86 @@
+// GenomeX Database Schema
+// Tables: User, Genome, Simulation, AuditLog
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           Int          @id @default(autoincrement())
+  email        String       @unique
+  passwordHash String
+  fullName     String
+  role         Role         @default(RESEARCHER)
+  organization String?
+  createdAt    DateTime     @default(now())
+
+  genomes      Genome[]
+  simulations  Simulation[]
+  auditLogs    AuditLog[]
+
+  @@map("users")
+}
+
+model Genome {
+  id           Int          @id @default(autoincrement())
+  name         String
+  species      String
+  sequence     String       @db.Text
+  description  String?
+  uploadedById Int
+  uploadedBy   User         @relation(fields: [uploadedById], references: [id])
+  createdAt    DateTime     @default(now())
+
+  simulations  Simulation[]
+
+  @@map("genomes")
+}
+
+model Simulation {
+  id             Int              @id @default(autoincrement())
+  genomeId       Int
+  genome         Genome           @relation(fields: [genomeId], references: [id])
+  requestedById  Int
+  requestedBy    User             @relation(fields: [requestedById], references: [id])
+  status         SimulationStatus @default(PENDING)
+  drugCompound   String
+  iterations     Int              @default(1000)
+  result         String?          @db.Text
+  startedAt      DateTime?
+  completedAt    DateTime?
+  createdAt      DateTime         @default(now())
+
+  @@map("simulations")
+}
+
+model AuditLog {
+  id        Int      @id @default(autoincrement())
+  userId    Int?
+  user      User?    @relation(fields: [userId], references: [id])
+  action    String
+  resource  String
+  details   String?  @db.Text
+  ipAddress String?
+  createdAt DateTime @default(now())
+
+  @@map("audit_logs")
+}
+
+enum Role {
+  ADMIN
+  SCIENTIST
+  RESEARCHER
+  VIEWER
+}
+
+enum SimulationStatus {
+  PENDING
+  RUNNING
+  COMPLETED
+  FAILED
+}
