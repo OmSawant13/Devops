@@ -93,14 +93,14 @@ spec:
                 sh 'which ssh || apk add --no-cache openssh-client || (apt-get update && apt-get install -y openssh-client)'
                 withCredentials([sshUserPrivateKey(credentialsId: 'aws-ec2-key', keyFileVariable: 'SSH_KEY')]) {
                     sh '''
-                        ssh -o StrictHostKeyChecking=no -i $SSH_KEY ubuntu@${EC2_HOST} << EOF
-                            docker pull ${BACKEND_IMAGE}:latest
-                            docker pull ${FRONTEND_IMAGE}:latest
-                            docker stop genomex-backend genomex-frontend || true
-                            docker rm genomex-backend genomex-frontend || true
-                            docker run -d --name genomex-backend -p 5000:5000 ${BACKEND_IMAGE}:latest
-                            docker run -d --name genomex-frontend -p 80:80 ${FRONTEND_IMAGE}:latest
-                        EOF
+                        ssh -o StrictHostKeyChecking=no -i $SSH_KEY ubuntu@${EC2_HOST} "
+                            sudo docker pull ${BACKEND_IMAGE}:latest && \
+                            sudo docker pull ${FRONTEND_IMAGE}:latest && \
+                            (sudo docker stop genomex-backend genomex-frontend || true) && \
+                            (sudo docker rm genomex-backend genomex-frontend || true) && \
+                            sudo docker run -d --name genomex-backend -p 5000:5000 ${BACKEND_IMAGE}:latest && \
+                            sudo docker run -d --name genomex-frontend -p 80:80 ${FRONTEND_IMAGE}:latest
+                        "
                     '''
                 }
             }
