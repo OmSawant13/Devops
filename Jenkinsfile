@@ -27,7 +27,7 @@ spec:
         BACKEND_IMAGE = "${DOCKER_REGISTRY}/genomex-backend"
         FRONTEND_IMAGE = "${DOCKER_REGISTRY}/genomex-frontend"
         AWS_REGION = 'ap-south-1'
-        EC2_HOST = '43.205.144.188'
+        EC2_HOST = '13.205.184.244'
     }
 
     stages {

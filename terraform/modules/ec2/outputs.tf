@@ -5,7 +5,7 @@ output "instance_id" {
 
 output "public_ip" {
   description = "Public IP address of the EC2 instance"
-  value       = aws_instance.app.public_ip
+  value       = aws_eip.app.public_ip
 }
 
 output "security_group_id" {
