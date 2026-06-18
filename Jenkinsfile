@@ -1,5 +1,26 @@
 pipeline {
-    agent any
+    agent {
+        kubernetes {
+            yaml '''
+apiVersion: v1
+kind: Pod
+spec:
+  containers:
+  - name: docker-cli
+    image: docker:24.0.7-cli
+    command:
+    - cat
+    tty: true
+    volumeMounts:
+    - mountPath: /var/run/docker.sock
+      name: docker-socket
+  volumes:
+  - name: docker-socket
+    hostPath:
+      path: /var/run/docker.sock
+'''
+        }
+    }
 
     environment {
         DOCKER_REGISTRY = 'docker.io/omsawant'
@@ -19,17 +40,21 @@ pipeline {
 
         stage('Build Backend') {
             steps {
-                echo 'Building backend Docker image...'
-                sh 'docker build -t ${BACKEND_IMAGE}:${BUILD_NUMBER} ./backend'
-                sh 'docker tag ${BACKEND_IMAGE}:${BUILD_NUMBER} ${BACKEND_IMAGE}:latest'
+                container('docker-cli') {
+                    echo 'Building backend Docker image...'
+                    sh 'docker build -t ${BACKEND_IMAGE}:${BUILD_NUMBER} ./backend'
+                    sh 'docker tag ${BACKEND_IMAGE}:${BUILD_NUMBER} ${BACKEND_IMAGE}:latest'
+                }
             }
         }
 
         stage('Build Frontend') {
             steps {
-                echo 'Building frontend Docker image...'
-                sh 'docker build -t ${FRONTEND_IMAGE}:${BUILD_NUMBER} ./frontend'
-                sh 'docker tag ${FRONTEND_IMAGE}:${BUILD_NUMBER} ${FRONTEND_IMAGE}:latest'
+                container('docker-cli') {
+                    echo 'Building frontend Docker image...'
+                    sh 'docker build -t ${FRONTEND_IMAGE}:${BUILD_NUMBER} ./frontend'
+                    sh 'docker tag ${FRONTEND_IMAGE}:${BUILD_NUMBER} ${FRONTEND_IMAGE}:latest'
+                }
             }
         }
 
@@ -49,13 +74,15 @@ pipeline {
 
         stage('Push to Docker Hub') {
             steps {
-                echo 'Pushing images to Docker Hub...'
-                withCredentials([usernamePassword(credentialsId: 'docker-hub', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
-                    sh 'echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin'
-                    sh 'docker push ${BACKEND_IMAGE}:${BUILD_NUMBER}'
-                    sh 'docker push ${BACKEND_IMAGE}:latest'
-                    sh 'docker push ${FRONTEND_IMAGE}:${BUILD_NUMBER}'
-                    sh 'docker push ${FRONTEND_IMAGE}:latest'
+                container('docker-cli') {
+                    echo 'Pushing images to Docker Hub...'
+                    withCredentials([usernamePassword(credentialsId: 'docker-hub', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
+                        sh 'echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin'
+                        sh 'docker push ${BACKEND_IMAGE}:${BUILD_NUMBER}'
+                        sh 'docker push ${BACKEND_IMAGE}:latest'
+                        sh 'docker push ${FRONTEND_IMAGE}:${BUILD_NUMBER}'
+                        sh 'docker push ${FRONTEND_IMAGE}:latest'
+                    }
                 }
             }
         }
@@ -63,9 +90,10 @@ pipeline {
         stage('Deploy to AWS EC2') {
             steps {
                 echo 'Deploying to AWS EC2 production server...'
+                sh 'which ssh || apk add --no-cache openssh-client || (apt-get update && apt-get install -y openssh-client)'
                 withCredentials([sshUserPrivateKey(credentialsId: 'aws-ec2-key', keyFileVariable: 'SSH_KEY')]) {
                     sh '''
-                        ssh -i $SSH_KEY -o StrictHostKeyChecking=no ubuntu@${EC2_HOST} << EOF
+                        ssh -o StrictHostKeyChecking=no -i $SSH_KEY ubuntu@${EC2_HOST} << EOF
                             docker pull ${BACKEND_IMAGE}:latest
                             docker pull ${FRONTEND_IMAGE}:latest
                             docker stop genomex-backend genomex-frontend || true
@@ -94,7 +122,7 @@ pipeline {
             echo '❌ Pipeline failed!'
         }
         always {
-            cleanWs()
+            deleteDir()
         }
     }
 }
