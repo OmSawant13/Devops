@@ -23,7 +23,7 @@ spec:
     }
 
     environment {
-        DOCKER_REGISTRY = 'docker.io/omsawant'
+        DOCKER_REGISTRY = 'docker.io/leadersdeveloper'
         BACKEND_IMAGE = "${DOCKER_REGISTRY}/genomex-backend"
         FRONTEND_IMAGE = "${DOCKER_REGISTRY}/genomex-frontend"
         AWS_REGION = 'ap-south-1'
